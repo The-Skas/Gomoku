@@ -1,6 +1,7 @@
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -16,7 +17,7 @@ import java.util.ArrayList;
 
 
 public class MyPlayer_130796000 extends GomokuPlayer {
-    private Color enemyColor;
+    
 
     /***
      * My Heuristic Method
@@ -41,6 +42,11 @@ public class MyPlayer_130796000 extends GomokuPlayer {
 
         public int getValue() { return value; }
     }
+    public enum Player{
+        NONE,
+        BLACK, 
+        WHITE
+    }
   
     private int curr_row = -1;
     private int curr_col = -1;
@@ -48,38 +54,64 @@ public class MyPlayer_130796000 extends GomokuPlayer {
     private final int ROW_SIZE = 8;
     private final int COL_SIZE = 8;
     
-    private Color[][] currBoardState;
-    private Color     myColor;
+    private int [][] currBoardState;
+    private int     teamColor;
+    private int enemyColor;
     private ArrayList<MiniMaxNode> maximumNodes;
     private ArrayList<MiniMaxNode> minimumNodes;
+    
+   
+    
     @Override
     public Move chooseMove(Color[][] board, Color me) {
-        this.currBoardState = board;
+        this.currBoardState = new int[ROW_SIZE][COL_SIZE];
         
+        
+        for(int i = 0; i < board.length; i++)
+        {
+            for(int j = 0; j < board[i].length; j++)
+            {
+                if(board[i][j] == Color.BLACK)
+                {
+                    currBoardState[i][j] = Player.BLACK.ordinal();
+                }
+                else if(board[i][j] == Color.WHITE)
+                {
+                    currBoardState[i][j] = Player.WHITE.ordinal();
+                }
+                else if(board[i][j] == null)
+                {
+                    currBoardState[i][j] = Player.NONE.ordinal();
+                }
+                
+            }
+        }
         maximumNodes = new ArrayList<>();
         minimumNodes = new ArrayList<>();
-        this.myColor = me;
+
         if(me == Color.BLACK)
         {
-            this.enemyColor = Color.WHITE;
+            this.enemyColor = Player.WHITE.ordinal();
+            this.teamColor  = Player.BLACK.ordinal();
         }
         else
         {
-            this.enemyColor = Color.BLACK;
+            this.enemyColor = Player.BLACK.ordinal();
+            this.teamColor  = Player.WHITE.ordinal();
         }
         
         System.out.println("Before Minimax");
       
-        MiniMaxNode bestMove =  minimax(1, board, -1,-1, true);
+        MiniMaxNode bestMove =  minimax(3, currBoardState, -1,-1, true);
 
         System.out.println("After Minimax");
-        System.out.println(bestMove);
+        bestMove.printBranch();
         return new Move(bestMove.row, bestMove.col);
        
     }
     
     
-    public double gokmokuHeuristicMethod(Color[][] boardState, int move_row,int move_col, Color playerColor)
+    public double gokmokuHeuristicMethod(int [][] boardState, int move_row,int move_col, int playerColor)
     {
         //TODO: Create a heurtisc for ordering what nodes should be searched
         //first. The idea is to have it find clusterned nodes over single ones.
@@ -103,6 +135,11 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         public int col = -1;
         public double heuristicValue = 0;
         
+        //Debugging
+        public int [][] boardState;
+        public int _myColor;
+        public MiniMaxNode child;
+
         public MiniMaxNode(double heurs, int row,int col)
         {
             this.row = row;
@@ -110,33 +147,131 @@ public class MyPlayer_130796000 extends GomokuPlayer {
             this.heuristicValue = heurs;
         }
         
+        public MiniMaxNode setState(int[][] boardState)
+        {
+            this.boardState = boardState;
+
+            
+            return this;
+        }
+        
+        public MiniMaxNode setColor(int tempColor)
+        {
+            this._myColor = tempColor;
+            return this;
+        }
+        
+        public MiniMaxNode clone()
+        {
+            int [][]copyState = this.boardState.clone();
+            int copyMyColor = this._myColor;
+            
+            MiniMaxNode myMiniMax = new MiniMaxNode(heuristicValue, row, col)
+                    .setColor(copyMyColor).setState(copyState);
+            
+            myMiniMax.child = this.child;
+            
+            return myMiniMax;
+            
+            
+        }
+        
+        public void printBranch()
+        {
+            MiniMaxNode _this = this;
+            while(_this != null)
+            {
+                
+                System.out.println(_this);
+                this.boardState[_this.row][_this.col] = _this._myColor;
+                this.debugBoard(this.boardState);
+                
+                
+                System.out.println("--------");
+                
+                //go to next
+                _this = _this.child;
+                
+            }
+        }
         @Override
         public String toString()
         {
-            return   (this.row+ "\n"+
-                     this.col+ "\n"+
-                     this.heuristicValue+"\n");
+            String color;
+            if(this._myColor == Player.WHITE.ordinal())
+            {
+                color = "White";
+            }
+            else
+            {
+                color = "Black";
+            }
+            
+            return  (color +"\n"
+                    +this.row+ " - "+this.col+ "\n"
+                    +this.heuristicValue+"\n");
+        }
+        
+        public void debugBoard(int[][] board)
+        {
+            for(int i = 0; i < ROW_SIZE; i++)
+            {
+                for(int j = 0; j < COL_SIZE; j++)
+                {
+                    if(board[i][j] == Player.BLACK.ordinal())
+                    {
+                        System.out.print(" B ");
+                    }
+                    else if(board[i][j] == Player.WHITE.ordinal())
+                    {
+                        System.out.print(" W ");
+                    }
+                    else
+                    {
+                        System.out.print(" * ");
+                    }
+
+                }
+                System.out.println();
+            }
         }
     }
-    public MiniMaxNode minimax(int depth, Color[][]boardState, int row, int col, boolean maximizingPlayer )
+    
+    class BranchTraceNode
+    {
+        public Color [][] boardState;
+        public Color myColor;
+        
+        
+        public int heuristicScore;
+        public int row = -1;
+        public int col = -1;
+        BranchTraceNode child;
+        
+    }
+    
+    public MiniMaxNode minimax(int depth, int[][]boardState, int row, int col, boolean maximizingPlayer )
     {
         if(depth == 0)
         {
-            double heursVal = 0; 
+            double heursVal = 0;
+            int tempColor;
             //Confusing boolean, but we need to flip it
             //(This is for the MAXIMIZING player 
             if(!maximizingPlayer)
             {
                 //gets normal maximum
-                heursVal= gokmokuHeuristicMethod(boardState,row,col, this.myColor);
+                heursVal= gokmokuHeuristicMethod(boardState,row,col, this.teamColor);
+                tempColor = this.teamColor;
                 //What if i accidently flip row with col?
             }
             else
             {
                //returns negative, since were at the enemy
                heursVal= -gokmokuHeuristicMethod(boardState, row, col, this.enemyColor);
+               tempColor = enemyColor;
             }
-            return new MiniMaxNode(heursVal, row, col);
+            return new MiniMaxNode(heursVal, row, col).setState(boardState).setColor(tempColor);
         }
         else
         {
@@ -159,26 +294,37 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                 {
                     for(int j = 0; j < COL_SIZE; j++)
                     {
-                        if(boardState[i][j] != null)
+                        if(boardState[i][j] != 0)
                             continue;
                         
                         
-                        boardState[i][j] = this.myColor;
+                        boardState[i][j] = this.teamColor;
                         
                         //The maximizingPlayers turn has finished, so now
                         //it is the minimizingPlayer's turn
-                        MiniMaxNode temp_node = minimax(depth - 1, boardState,
+                        MiniMaxNode temp_node = minimax(depth - 1, Arrays.copyOf(boardState, boardState.length),
                             i, j, !maximizingPlayer);
                         
+                        
                         //Revert PreviousColor
-                        boardState[i][j] = null;
+                        boardState[i][j] = 0;
                         
                         if(temp_node.heuristicValue > maximumNode.heuristicValue)
                         {
                             maximumNode = temp_node;
+                            
+                            maximumNode.child = maximumNode.clone();
+                            maximumNode.row = i;
+                            maximumNode.col = j;
+                            maximumNode._myColor = this.teamColor;
                         }
                     }
                 }
+                //For every decision made here...
+                //Understand what is the state recursively.
+                
+      
+                
                 return maximumNode;
             }
             else //minimizingPlayer
@@ -191,26 +337,33 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                 {
                     for( int j = 0; j < COL_SIZE; j++)
                     {
-                        if(boardState[i][j] != null)
+                        if(boardState[i][j] != Player.NONE.ordinal())
                             continue;
                         
                         boardState[i][j] = this.enemyColor;
                         //The maximizingPlayers turn has finished, so now
                         //it is the minimizingPlayer's turn
-                        MiniMaxNode temp_node = minimax(depth - 1, boardState,
+                        MiniMaxNode temp_node = minimax(depth - 1, boardState.clone(),
                             i, j, !maximizingPlayer);
                         
+                        //This is to make sure to keep track of depths
+                        
                         //Revert PreviousColor
-                        boardState[i][j] = null;
+                        boardState[i][j] = Player.NONE.ordinal();
                         
                         if(temp_node.heuristicValue < minimumNode.heuristicValue)
                         {
                             //found a smaller node
                             minimumNode = temp_node;
+                            
+                            minimumNode.child = minimumNode.clone();
+                            minimumNode.row = i;
+                            minimumNode.col = j;
+                            minimumNode._myColor = this.enemyColor;
                         }
                     }
                 }
-                
+           
                 return minimumNode;
             }
             
@@ -234,7 +387,7 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         is_move_in_bounds = isMoveInBounds(move_row, move_col);
 
         
-        if(currBoardState[move_row][move_col] != null)
+        if(currBoardState[move_row][move_col] != 0)
         {
             is_space_free = false;
         }
@@ -243,10 +396,9 @@ public class MyPlayer_130796000 extends GomokuPlayer {
             
     }
     
-    boolean isValidTeamCell(int move_row, int move_col, Color myTeam, Color[][]boardState)
+    boolean isValidTeamCell(int move_row, int move_col, int myTeam, int[][]boardState)
     {
-        if(isMoveInBounds(move_row, move_col) &&
-                boardState[move_row][move_col] != null)
+        if(isMoveInBounds(move_row, move_col) )
         {
             //Error: Forgot that the array can have null values.
             return boardState[move_row][move_col] == myTeam;
@@ -258,10 +410,14 @@ public class MyPlayer_130796000 extends GomokuPlayer {
     public double calculateLineScore(int move_row, int move_col, 
                             int xdir, int ydir, 
                             double best_val, 
-                            Color curColor,
-                            Color [][] boardState)
+                            int curColor,
+                            int [][] boardState)
     {
         int adjacent_number = 0;
+        
+        //This bool is to make sure the move(row,col) 
+        //has been visited.
+        boolean have_visited_move = false;
         for(int i = -4; i < 5; i++)
         {
             //bug is due to to when both xdir and ydir
@@ -271,14 +427,24 @@ public class MyPlayer_130796000 extends GomokuPlayer {
             //LEARN? Code seems obscure.. there was a lack of understanding
             //when implementing the idea.. it wouldve been better to
             //make it simpler.
-            if(isValidTeamCell(move_row + i*xdir,  move_col + i*ydir,
+            int next_row = move_row + i*xdir;
+            int next_col = move_col + i*ydir;
+            
+            if(next_row == move_row && 
+                    next_col == move_col)
+            {
+                have_visited_move = true;
+            }
+                
+            if(isValidTeamCell(next_row,  next_col,
                     curColor , boardState))
             {
                 adjacent_number++;
             }
             else
             {
-                if(best_val < adjacent_number)
+                if(best_val < adjacent_number &&
+                        have_visited_move)
                 {
                     best_val = adjacent_number;
                 }
@@ -288,10 +454,10 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         return best_val;
     }
     
-    public double getAdjacentScore(Color[][] boardState,
+    public double getAdjacentScore(int [][] boardState,
                                       int move_row, 
                                       int move_col,
-                                      Color curColor)
+                                      int curColor)
     {
         double best_val = 1;
  
@@ -316,30 +482,32 @@ public class MyPlayer_130796000 extends GomokuPlayer {
             }
         }
         
-        return best_val*3;
+        return best_val;
     }
     
-    public void debugBoard(Color[][] board)
-    {
-        for(int i = 0; i < ROW_SIZE; i++)
+    public void debugBoard(int[][] board)
         {
-            for(int j = 0; j < COL_SIZE; j++)
+            for(int i = 0; i < ROW_SIZE; i++)
             {
-                if(board[i][j] == Color.BLACK)
+                for(int j = 0; j < COL_SIZE; j++)
                 {
-                    System.out.print(" B ");
+                    if(board[i][j] == Player.BLACK.ordinal())
+                    {
+                        System.out.print(" B ");
+                    }
+                    else if(board[i][j] == Player.WHITE.ordinal())
+                    {
+                        System.out.print(" W ");   
+                    }
+                    else
+                    {
+                        System.out.print(" * ");
+                    }
+
                 }
-                else if(board[i][j] == Color.WHITE)
-                {
-                    System.out.print(" W ");
-                }
-                else
-                {
-                    System.out.print(" 0 ");
-                }
-                
+                System.out.println();
             }
-            System.out.println();
         }
-    }
+    
+    
 }
