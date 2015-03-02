@@ -1,5 +1,6 @@
 
 import java.awt.Color;
+import java.util.ArrayList;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -49,11 +50,14 @@ public class MyPlayer_130796000 extends GomokuPlayer {
     
     private Color[][] currBoardState;
     private Color     myColor;
-
+    private ArrayList<MiniMaxNode> maximumNodes;
+    private ArrayList<MiniMaxNode> minimumNodes;
     @Override
     public Move chooseMove(Color[][] board, Color me) {
         this.currBoardState = board;
         
+        maximumNodes = new ArrayList<>();
+        minimumNodes = new ArrayList<>();
         this.myColor = me;
         if(me == Color.BLACK)
         {
@@ -66,7 +70,7 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         
         System.out.println("Before Minimax");
       
-        MiniMaxNode bestMove =  minimax(2, board, -1,-1, true);
+        MiniMaxNode bestMove =  minimax(1, board, -1,-1, true);
 
         System.out.println("After Minimax");
         System.out.println(bestMove);
@@ -245,7 +249,7 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                 boardState[move_row][move_col] != null)
         {
             //Error: Forgot that the array can have null values.
-            return boardState[move_row][move_col].equals(myTeam);
+            return boardState[move_row][move_col] == myTeam;
         }
         
         return false;
@@ -260,6 +264,13 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         int adjacent_number = 0;
         for(int i = -4; i < 5; i++)
         {
+            //bug is due to to when both xdir and ydir
+            //are 0, we stay in the same place and loop.
+            //incrementing.. yet then it should increment up to?
+            
+            //LEARN? Code seems obscure.. there was a lack of understanding
+            //when implementing the idea.. it wouldve been better to
+            //make it simpler.
             if(isValidTeamCell(move_row + i*xdir,  move_col + i*ydir,
                     curColor , boardState))
             {
@@ -283,20 +294,52 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                                       Color curColor)
     {
         double best_val = 1;
-        for(int xdir = -1; xdir < 2; xdir++)
+ 
+        //X,Y -> 1,0 - 0,1 - 1,1 - -1,1
+        int[] arr_xdir = {0, 1, 1, -1};
+        int[] arr_ydir = {1, 0, 1,  1};
+        for(int xdir = 0; xdir < arr_xdir.length; xdir++)
         {
-            for(int ydir = -1; ydir < 2; ydir++)
+            for(int ydir = 0; ydir < arr_ydir.length; ydir++)
             {
                 //I want to get the position of the board,
                 //without worrying if its the wrong position.
                 
                 //explore position pattern From current position
-                best_val = calculateLineScore(move_row, move_col, 
-                                        xdir, ydir, best_val, curColor, boardState);
+                double temp_val = calculateLineScore(move_row, move_col, 
+                                        arr_xdir[xdir], arr_ydir[ydir], best_val, curColor, boardState);
                 
+                if(temp_val > best_val)
+                {
+                    best_val = temp_val;
+                }
             }
         }
         
         return best_val*3;
+    }
+    
+    public void debugBoard(Color[][] board)
+    {
+        for(int i = 0; i < ROW_SIZE; i++)
+        {
+            for(int j = 0; j < COL_SIZE; j++)
+            {
+                if(board[i][j] == Color.BLACK)
+                {
+                    System.out.print(" B ");
+                }
+                else if(board[i][j] == Color.WHITE)
+                {
+                    System.out.print(" W ");
+                }
+                else
+                {
+                    System.out.print(" 0 ");
+                }
+                
+            }
+            System.out.println();
+        }
     }
 }
