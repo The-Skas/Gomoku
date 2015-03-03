@@ -305,7 +305,12 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                         MiniMaxNode temp_node = minimax(depth - 1, Arrays.copyOf(boardState, boardState.length),
                             i, j, !maximizingPlayer);
                         
-                        
+                        //Such that we evaluate our current space as well to
+                        //calculate the score.
+                        if(depth - 1 != 0)
+                        {
+                            temp_node.heuristicValue += gokmokuHeuristicMethod(boardState,i,j, this.teamColor); 
+                        }
                         //Revert PreviousColor
                         boardState[i][j] = 0;
                         
@@ -323,7 +328,6 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                 //For every decision made here...
                 //Understand what is the state recursively.
                 
-      
                 
                 return maximumNode;
             }
@@ -346,8 +350,12 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                         MiniMaxNode temp_node = minimax(depth - 1, boardState.clone(),
                             i, j, !maximizingPlayer);
                         
-                        //This is to make sure to keep track of depths
-                        
+                       //Such that we evaluate our current space as well to
+                       //calculate the score.
+                        if(depth - 1 != 0)
+                        {
+                            temp_node.heuristicValue -= gokmokuHeuristicMethod(boardState,i,j, this.enemyColor); 
+                        }
                         //Revert PreviousColor
                         boardState[i][j] = Player.NONE.ordinal();
                         
@@ -482,7 +490,7 @@ public class MyPlayer_130796000 extends GomokuPlayer {
             }
         }
         
-        return best_val;
+        return best_val * best_val *best_val;
     }
     
     public void debugBoard(int[][] board)
