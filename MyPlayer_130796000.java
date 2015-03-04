@@ -17,6 +17,8 @@ import java.util.Arrays;
 
 
 public class MyPlayer_130796000 extends GomokuPlayer {
+
+   
     
 
     /***
@@ -31,8 +33,13 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         
         //Such that a winning move will always be picked over
         //preventing a winning move
+        IMMEDIATE_WINNING_MOVE(101),
         PREVENT_WINNING_MOVE(100),
-        WINNING_MOVE(101);
+        NEXT_TURN_WINNING_MOVE(99),
+        //Line_team_sequence * sequence length;
+        LINE_TEAM_SEQUENCE(2),
+        ADJACENT_ENEMY_CELL(1);
+        
         
         private final int value;
 
@@ -62,6 +69,23 @@ public class MyPlayer_130796000 extends GomokuPlayer {
     
    
     
+    public boolean isBoardEmpty(Color [][] board)
+    {
+        for(int i = 0; i < ROW_SIZE; i++)
+        {
+            for(int j = 0; j < COL_SIZE; j++)
+            {
+                if(board[i][j] != null)
+                {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+            
+            
     @Override
     public Move chooseMove(Color[][] board, Color me) {
         this.currBoardState = new int[ROW_SIZE][COL_SIZE];
@@ -101,12 +125,27 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         }
         
         System.out.println("Before Minimax");
-      
-        MiniMaxNode bestMove =  minimax(3, currBoardState, -1,-1, true);
+        
+        if(me == Color.WHITE && isBoardEmpty(board))
+        {
+            return new Move(4,4);
+        }
+        
+         
+        try
+        {
+            MiniMaxNode bestMove =  minimax(3, currBoardState, -1,-1, true, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
 
-        System.out.println("After Minimax");
-        bestMove.printBranch();
-        return new Move(bestMove.row, bestMove.col);
+            System.out.println("After Minimax");
+            bestMove.printBranch();
+            return new Move(bestMove.row, bestMove.col);
+        }
+        catch(Exception ex){
+            ex.printStackTrace();
+            System.out.println(ex.getMessage());
+        }
+        
+        return new Move(-1, -1);
        
     }
     
@@ -122,10 +161,27 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         //state of the game.
         
         //Does it win the game?
+        
+        //THIS IS BAD, CHANGE IT AS IT PRIORITISES DEFENCE!
+        //Make it such that Scores determines what
+        
+        
+        double block_score = blockEnemyScore(boardState, move_row, move_col, playerColor);
        
+      
         
-        return getAdjacentScore(boardState, move_row, move_col, playerColor);
         
+        
+        double adj_score =  getAdjacentScore(boardState, move_row, move_col, playerColor);
+        
+        if(block_score >= adj_score)
+        {
+            return block_score;
+        }
+        else
+        {
+            return adj_score;
+        }
     }
     
     //Node 
@@ -163,7 +219,11 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         
         public MiniMaxNode clone()
         {
-            int [][]copyState = this.boardState.clone();
+            int [][]copyState = null;
+            if(boardState != null)
+            {
+                copyState = this.boardState.clone();
+            }
             int copyMyColor = this._myColor;
             
             MiniMaxNode myMiniMax = new MiniMaxNode(heuristicValue, row, col)
@@ -250,7 +310,7 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         
     }
     
-    public MiniMaxNode minimax(int depth, int[][]boardState, int row, int col, boolean maximizingPlayer )
+    public MiniMaxNode minimax(int depth, int[][]boardState, int row, int col, boolean maximizingPlayer, double alpha, double beta )
     {
         if(depth == 0)
         {
@@ -289,7 +349,6 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                 //Todo (Possibly): Higher level abstraction is a beauty,
                 //it would be interesting to merge the minimum and maximum 
                 //loops into a simple flipflop method.
-                
                 for(int i = 0; i < ROW_SIZE; i++)
                 {
                     for(int j = 0; j < COL_SIZE; j++)
@@ -303,7 +362,7 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                         //The maximizingPlayers turn has finished, so now
                         //it is the minimizingPlayer's turn
                         MiniMaxNode temp_node = minimax(depth - 1, Arrays.copyOf(boardState, boardState.length),
-                            i, j, !maximizingPlayer);
+                            i, j, !maximizingPlayer, alpha, beta);
                         
                         //Such that we evaluate our current space as well to
                         //calculate the score.
@@ -317,12 +376,17 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                         if(temp_node.heuristicValue > maximumNode.heuristicValue)
                         {
                             maximumNode = temp_node;
-                            
+                            //alpha = temp_node.heuristicValue;
                             maximumNode.child = maximumNode.clone();
+                            //maximumNode.child.heuristicValue -= gokmokuHeuristicMethod(boardState,i,j, this.teamColor);
                             maximumNode.row = i;
                             maximumNode.col = j;
                             maximumNode._myColor = this.teamColor;
                         }
+                        
+                        if(alpha > beta)
+                            return maximumNode;
+                       
                     }
                 }
                 //For every decision made here...
@@ -348,7 +412,7 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                         //The maximizingPlayers turn has finished, so now
                         //it is the minimizingPlayer's turn
                         MiniMaxNode temp_node = minimax(depth - 1, boardState.clone(),
-                            i, j, !maximizingPlayer);
+                            i, j, !maximizingPlayer, alpha,beta);
                         
                        //Such that we evaluate our current space as well to
                        //calculate the score.
@@ -363,12 +427,16 @@ public class MyPlayer_130796000 extends GomokuPlayer {
                         {
                             //found a smaller node
                             minimumNode = temp_node;
-                            
+                            //beta = temp_node.heuristicValue;
                             minimumNode.child = minimumNode.clone();
+                            //minimumNode.child.heuristicValue += gokmokuHeuristicMethod(boardState,i,j, this.enemyColor);
                             minimumNode.row = i;
                             minimumNode.col = j;
                             minimumNode._myColor = this.enemyColor;
                         }
+                        
+                        if(alpha > beta)
+                            return minimumNode;
                     }
                 }
            
@@ -387,15 +455,17 @@ public class MyPlayer_130796000 extends GomokuPlayer {
     {
        return !isMoveOutOfBounds(move_row, move_col);
     }
-    public boolean isValidMove(int move_row, int move_col)
+    public boolean isValidMove(int move_row, int move_col, int[][]boardState)
     {
         boolean is_move_in_bounds = true;
         boolean is_space_free = true;
         
         is_move_in_bounds = isMoveInBounds(move_row, move_col);
-
         
-        if(currBoardState[move_row][move_col] != 0)
+        
+        
+        if(is_move_in_bounds &&
+                boardState[move_row][move_col] != 0)
         {
             is_space_free = false;
         }
@@ -415,18 +485,44 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         return false;
     }
     
+    
+    public int getFreeBlocksInDirection(int[][] boardState, int rowDir, int colDir, 
+            int row_start_pos, int col_start_pos, int teamColor) {
+        
+        int blocks = 0;
+        for(int i = 0; i < 5; i++)
+        {
+            int row = row_start_pos + i*rowDir;
+            int col = col_start_pos + i*colDir;
+            
+            if(isValidTeamCell(row, col, teamColor, boardState)
+                    || isValidMove(row, col, boardState))
+            {
+                blocks += 1;
+            }
+            else
+            {
+                return blocks;
+            }
+        }
+        
+        return blocks;
+    }
+    
     public double calculateLineScore(int move_row, int move_col, 
-                            int xdir, int ydir, 
+                            int rowDir, int colDir, 
                             double best_val, 
                             int curColor,
                             int [][] boardState)
     {
         int adjacent_number = 0;
-        
+        best_val = 0;
         //This bool is to make sure the move(row,col) 
         //has been visited.
         boolean have_visited_move = false;
-        for(int i = -4; i < 5; i++)
+        
+        outerloop:
+        for(int i = -5; i < 6; i++)
         {
             //bug is due to to when both xdir and ydir
             //are 0, we stay in the same place and loop.
@@ -435,29 +531,74 @@ public class MyPlayer_130796000 extends GomokuPlayer {
             //LEARN? Code seems obscure.. there was a lack of understanding
             //when implementing the idea.. it wouldve been better to
             //make it simpler.
-            int next_row = move_row + i*xdir;
-            int next_col = move_col + i*ydir;
+            int next_row = move_row + i*rowDir;
+            int next_col = move_col + i*colDir;
             
             if(next_row == move_row && 
                     next_col == move_col)
             {
                 have_visited_move = true;
-            }
+                adjacent_number++;
                 
-            if(isValidTeamCell(next_row,  next_col,
+                //continue to next loop;
+            } 
+            else if(isValidTeamCell(next_row,  next_col,
                     curColor , boardState))
             {
+                //Increment adjacent number
                 adjacent_number++;
             }
             else
             {
-                if(best_val < adjacent_number &&
-                        have_visited_move)
-                {
-                    best_val = adjacent_number;
-                }
-                adjacent_number = 0;
+                
+                    if(best_val < adjacent_number &&
+                            have_visited_move)
+                    {
+                        best_val = adjacent_number;
+
+                        //Check winning conditions
+                        int end_line = i;
+                        int start_line = ((i) - adjacent_number) - 1;
+
+                        int row_start_pos = next_row;
+                        int col_start_pos = next_col;
+
+                        int blocks_after = getFreeBlocksInDirection(boardState, rowDir, colDir,
+                                    row_start_pos, col_start_pos, curColor);
+
+                        row_start_pos = move_row  +  start_line*(-rowDir);
+                        col_start_pos = move_col  +  start_line*(-colDir);
+
+                        int blocks_before = getFreeBlocksInDirection(boardState, -rowDir, -colDir,
+                                    row_start_pos, col_start_pos, curColor);
+
+
+                        //This scenario is -XXXX-
+                        if (best_val == 4)
+                        {
+                            //Set winning move
+                            if(blocks_after >= 1 &&
+                                    blocks_before >= 1)
+                            {
+                                //Has won
+                                return SCORE.NEXT_TURN_WINNING_MOVE.getValue();
+                            }
+                        }
+                        //EXIT LOOP
+                        break outerloop;
+                    }
+                    adjacent_number = 0;
+
             }
+        }
+        
+        
+        
+        //Check winning conditions
+        if(best_val >= 5)
+        {
+            //Signifying a win.
+            return SCORE.IMMEDIATE_WINNING_MOVE.getValue();
         }
         return best_val;
     }
@@ -470,19 +611,20 @@ public class MyPlayer_130796000 extends GomokuPlayer {
         double best_val = 1;
  
         //X,Y -> 1,0 - 0,1 - 1,1 - -1,1
-        int[] arr_xdir = {0, 1, 1, -1};
-        int[] arr_ydir = {1, 0, 1,  1};
-        for(int xdir = 0; xdir < arr_xdir.length; xdir++)
+        int[] arr_row_dir = {1, 0, -1};
+        int[] arr_col_dir = {1, 0, -1};
+        for(int xdir = 0; xdir < arr_row_dir.length; xdir++)
         {
-            for(int ydir = 0; ydir < arr_ydir.length; ydir++)
+            for(int ydir = 0; ydir < arr_col_dir.length; ydir++)
             {
                 //I want to get the position of the board,
                 //without worrying if its the wrong position.
                 
                 //explore position pattern From current position
                 double temp_val = calculateLineScore(move_row, move_col, 
-                                        arr_xdir[xdir], arr_ydir[ydir], best_val, curColor, boardState);
+                                        arr_row_dir[xdir], arr_col_dir[ydir], best_val, curColor, boardState);
                 
+                // for temp_val > then N.
                 if(temp_val > best_val)
                 {
                     best_val = temp_val;
@@ -490,7 +632,61 @@ public class MyPlayer_130796000 extends GomokuPlayer {
             }
         }
         
-        return best_val * best_val *best_val;
+        return best_val;
+    }
+    
+    int oppositeColor(int color)
+    {
+        if(color  == Player.BLACK.ordinal())
+        {
+            return Player.WHITE.ordinal();
+        }
+        else if(color == Player.WHITE.ordinal())
+        {
+            return Player.BLACK.ordinal();
+        }
+        else
+        {
+            System.out.println("Skas: Oops, Invalid team color!");
+            return -1; 
+        }
+    }
+    
+    public double blockEnemyScore(int [][] boardState,
+                               int move_row,
+                               int move_col,
+                               int curColor)
+    {
+        
+        double score = this.getAdjacentScore(boardState, move_row, move_col, 
+                            this.oppositeColor(curColor));
+        
+        
+        if(score == SCORE.PREVENT_WINNING_MOVE.getValue())
+        {
+            return SCORE.PREVENT_WINNING_MOVE.getValue();
+        }
+        else if(score == SCORE.NEXT_TURN_WINNING_MOVE.getValue())
+        {
+           return SCORE.NEXT_TURN_WINNING_MOVE.getValue();
+        }
+        //Returns true if enemy has won, false otherwise.
+        
+        
+        return score*0.4;
+       
+        
+    }
+    
+    public boolean hasAdjacentEnemyCell(int [][] boardState,
+                                        int move_row,
+                                        int move_col,
+                                        int curColor)
+    {
+//        int [] arr_xdir = {-1
+//        for(int )
+//        return true;
+          return true;
     }
     
     public void debugBoard(int[][] board)
